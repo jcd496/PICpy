@@ -28,6 +28,7 @@ class Particles:
         self.columns = self.__getColumns()
         self.patchSizes = self.__getSizes()
         self.patchCoordinates = self.__getPatchOffsets()
+        self.xb = self.__getXb()
         self.gridMaxDims = self.patchCoordinates[-1]
         
     def __getColumns(self, printVar=False):
@@ -62,11 +63,19 @@ class Particles:
     
     def __getPatchOffsets(self):
         """
-        Collect the offsets of lower left corner of patch.  Offset in number of grid points.  Metadata for entire grid
+        Collect the global position offsets of patches. Metadata for entire grid
         """
         with adios2.open(self.path, 'r') as fh:
             patchCoordinates = fh.read('grid::off')
         return patchCoordinates
+    
+    def __getXb(self):
+        """
+        Collect the offsets of lower left corner of patch.  Offset in number of grid points.  Metadata for entire grid
+        """
+        with adios2.open(self.path, 'r') as fh:
+            patchXb = fh.read('grid::xb')
+        return patchXb
     
     def __toStartCount(self, coordinates, cellsPerPatch):
         """
@@ -75,16 +84,23 @@ class Particles:
         args:
             coordinates (int, int, int): lower left cell index of patch in grid
             cellsPerPatch [int]: number of cells per grid patch
+        returns:
+            offset of first particle in cell
+            number of particles in cell
+            idx of patch in grid meta-data
         """
         coord = np.array(coordinates)
         if( np.any(coord % cellsPerPatch != 0) ):
             raise Exception(f"Coordinates must be divisible by {cellsPerPatch}, patches contain {cellsPerPatch} cells in each dimension.")
+            
         if self.patchCoordinates is not None and self.patchSizes is not None:
             idx = np.where( np.all(coord == self.patchCoordinates, axis=1) )[0][0]
             offsets = np.cumsum(self.patchSizes) - self.patchSizes
         else:
             raise Exception("Either patch coordinates or patch sizes not loaded")
-        return [offsets[idx]], [self.patchSizes[idx]]
+        
+        return [offsets[idx]], [self.patchSizes[idx]], idx
+    
     def getPatchMomentum(self, coordinates, cellsPerPatch):
         """
         Return 3D momentum of particles in patch, normalized with mass = 1
@@ -94,7 +110,7 @@ class Particles:
         """
         #convert coordinates to patch index here
         
-        start, count = self.__toStartCount(coordinates, cellsPerPatch)
+        start, count, _ = self.__toStartCount(coordinates, cellsPerPatch)
 
         with adios2.open(self.path, 'r') as fh:
             ux = fh.read('mprts::mprts::ux', start, count).reshape(-1,1)
@@ -109,31 +125,31 @@ class Particles:
         
         return prts[['ux', 'uy', 'uz', 'kind']]
     
-    def getPatchPosition(self, coordinates, cellsPerPatch, patchX=0, patchY=0, patchZ=0):
+    def getPatchPosition(self, coordinates, cellsPerPatch):
         """
         Return 3D position of particles in patch
         args:
             coordinates (int, int, int): lower left cell index of patch in grid
             cellsPerPatch [int]: number of cells per grid patch
-            
-        THIS IS NOT CORRECT.  X,Y,Z ARE ONLY LOCAL WITHIN PATCH, NEED TO ADD nPatchX * xPerPatch, nPatchY * yPerPatch, nPatchZ * zPerPatch
-        pass from __collectPrts() or calc directly from coordinates and cellsPerPatch
+
         """
-        start, count = self.__toStartCount(coordinates, cellsPerPatch)
+        start, count, idx = self.__toStartCount(coordinates, cellsPerPatch)
         
         with adios2.open(self.path, 'r') as fh:
-            x = fh.read('mprts::mprts::x', start, count).reshape(-1,1) + patchX
-            y = fh.read('mprts::mprts::y', start, count).reshape(-1,1) + patchY
-            z = fh.read('mprts::mprts::z', start, count).reshape(-1,1) + patchZ
+            x = fh.read('mprts::mprts::x', start, count).reshape(-1,1)
+            y = fh.read('mprts::mprts::y', start, count).reshape(-1,1)
+            z = fh.read('mprts::mprts::z', start, count).reshape(-1,1)
             kind = fh.read('mprts::mprts::kind', start, count).reshape(-1,1)
         prts = np.concatenate((x, y, z, kind), axis=1)
         prts = pd.DataFrame(prts, columns=['x', 'y', 'z', 'kind'], dtype=np.float32)
+        prts[['x', 'y', 'z']] = prts[['x', 'y', 'z']] + self.xb[idx]
+        
         if self.species != -1:
             prts = prts[prts['kind'] == self.species]
         
         return prts[['x', 'y', 'z', 'kind']]
     
-    def getPatch(self, coordinates, cellsPerPatch, patchX=0, patchY=0, patchZ=0):
+    def getPatch(self, coordinates, cellsPerPatch):
         """
         Return all features of particles in patch
         args:
@@ -141,12 +157,12 @@ class Particles:
             cellsPerPatch [int]: number of cells per grid patch
         
         """ 
-        start, count = self.__toStartCount(coordinates, cellsPerPatch)
+        start, count, idx = self.__toStartCount(coordinates, cellsPerPatch)
         
         with adios2.open(self.path, 'r') as fh:
-            x = fh.read('mprts::mprts::x', start, count).reshape(-1,1) + patchX
-            y = fh.read('mprts::mprts::y', start, count).reshape(-1,1) + patchY
-            z = fh.read('mprts::mprts::z', start, count).reshape(-1,1) + patchZ
+            x = fh.read('mprts::mprts::x', start, count).reshape(-1,1)
+            y = fh.read('mprts::mprts::y', start, count).reshape(-1,1)
+            z = fh.read('mprts::mprts::z', start, count).reshape(-1,1)
             ux = fh.read('mprts::mprts::ux', start, count).reshape(-1,1)
             uy = fh.read('mprts::mprts::uy', start, count).reshape(-1,1)
             uz = fh.read('mprts::mprts::uz', start, count).reshape(-1,1)  
@@ -155,6 +171,8 @@ class Particles:
             
         prts = np.concatenate((x, y, z, ux, uy, uz, kind, qni_wni), axis=1)
         prts = pd.DataFrame(prts, columns=['x', 'y', 'z', 'ux', 'uy', 'uz', 'kind', 'qni_wni'], dtype=np.float32)
+        prts[['x', 'y', 'z']] = prts[['x', 'y', 'z']] + self.xb[idx]
+        
         if self.species != -1:
             prts = prts[prts['kind'] == self.species]
         
@@ -179,7 +197,7 @@ class SuperCell(Particles):
         self.patches = patches
         self.cellsPerPatch = cellsPerPatch
         self.residents = None
-    def __collectPrts(self, centroid, patches, cellsPerPatch, getPositions=False):
+    def __collectPrts(self, getPositions=False):
         """
         Read particles belonging to super cell from checkpoint file. Only retrieve useful features
         args:
@@ -188,20 +206,21 @@ class SuperCell(Particles):
             cellsPerPatch [int]: number of grid cells in each patch
             getPostitions [bool]: If true, read particle position data in addition to momentum 
         """
-
+        patches = self.patches
+        
         if patches % 2 == 1:
             lastPatch = 1
         else:
             lastPatch = 0
         patches = patches // 2
        
-        x, y, z = centroid
+        x, y, z = self.centroid
         residents = []
         #for i in range(-patches, patches+1):  add for 3d supercell 
         for j in range(-patches, patches+lastPatch):
             for k in range(-patches, patches+lastPatch):
                 
-                patchX, patchY, patchZ = x, y + j*cellsPerPatch, z + k*cellsPerPatch
+                patchX, patchY, patchZ = x, y + (j * self.cellsPerPatch), z + (k * self.cellsPerPatch)
                 #patchX, patchY, patchZ = x + i*cellsPerPatch, y + j*cellsPerPatch, z + k*cellsPerPatch this line for 3d supercell
                 
                 if(
@@ -210,10 +229,10 @@ class SuperCell(Particles):
                     patchZ >= 0 and patchZ <= self.gridMaxDims[2]
                   ):
                     coordinates = (patchX, patchY, patchZ)
-                    prts = self.getPatchMomentum(coordinates, cellsPerPatch)
+                    prts = self.getPatchMomentum(coordinates, self.cellsPerPatch)
                     
                     if getPositions:
-                        positions = self.getPatchPosition(coordinates, cellsPerPatch, y=patchY, z=patchZ)
+                        positions = self.getPatchPosition(coordinates, self.cellsPerPatch)
                         prts = pd.concat((prts, positions), axis=1)
                         
                     residents.append( prts )
@@ -231,7 +250,7 @@ class SuperCell(Particles):
             bins [int]: number of bins to be used in histogram construction
         """
         if self.residents is None:
-            self.__collectPrts(self.centroid, self.patches, self.cellsPerPatch)
+            self.__collectPrts()
         
         #2d array y, z dims, might add switch to select which dimensions
         data = self.residents[['uy', 'uz']].to_numpy()
@@ -239,16 +258,21 @@ class SuperCell(Particles):
         hist = plt.hist2d(data[:,0],data[:,1], bins, norm=LogNorm())
         plt.colorbar(hist[3])
         
-    def histogramV(self, bins, log=False, dim='s', savePath=None):
+    def histogramV(self, bins, log=False, dim='s', savePath=None, slice_=None):
         """
         Construct and plot 1D histogram of particle V.  Normalized, optionally logarithmic.
         args:
             bins [int]: number of bins to be used in histogram construction
             log [bool]: Logarithmic bins
             dim [char]: 'x', 'y', 'z', 's', s=scalar product (vx^2 + vy^2 + vz^2)
+            savePath[str/path]: path to save histogram data
+            slice_[char]: 'x', 'y', 'z', dimension to filter data, only keep 3 sigma
         """
         if self.residents is None:
-            self.__collectPrts(self.centroid, self.patches, self.cellsPerPatch)
+            self.__collectPrts(getPositions=bool(slice_))
+            
+        if bool(slice_):    
+            self.residents = self.residents[ np.abs(stats.zscore(self.residents[slice_])) < 1]
         
         if dim == 's':
             data = 0.5*(self.residents['ux']**2 + self.residents['uy']**2 + self.residents['uz']**2)
@@ -269,7 +293,7 @@ class SuperCell(Particles):
             dim [str]: string of dimension along which to calculate Temperature moment (x, y z)
         """
         if self.residents is None:
-            self.__collectPrts(self.centroid, self.patches, self.cellsPerPatch, getPositions=True)
+            self.__collectPrts(getPositions=True)
 
         idx = {'x': 'ux', 'y': 'uy', 'z': 'uz'}[dim]
         V = self.residents[idx]
