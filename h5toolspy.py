@@ -54,8 +54,8 @@ def selectSubSpace(xp: int, yp: int, cellsPerPatch = 32, numPatches = 1):
         cellsPerPatch [int]: number of grid cells in a singled dimension of patch
         numPatches [int]: number of patches to select in a single dimension
     """
-    box = cellsPerPatch*numPatches
-    rect = matplotlib.patches.Rectangle((xp,yp), box, cellsPerPatch*numPatches, linewidth=1,edgecolor='g',facecolor='none')
+    width = (cellsPerPatch-1)*numPatches
+    rect = matplotlib.patches.Rectangle((xp,yp), width, width, linewidth=1,edgecolor='g',facecolor='none')
     plt.gca().add_patch(rect)
     return 
 
