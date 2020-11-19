@@ -10,16 +10,26 @@ import xarray as xr
 import matplotlib
 import matplotlib.pyplot as plt
 
-def getH5Grid(root: str, file_: str, field: str, time: int):
+def getH5Grid(root: str,
+              file_: str,
+              field: str,
+              time: int,
+              xmin: float = None,
+              xmax: float = None,
+              ymin: float = None,
+              ymax: float = None,
+              zmin: float = None,
+              zmax: float = None):
     """
     args:
         root [str]: path to root directory
         file_ [str]: xdmf file to open, usually tfd or tfd_moments
         field [str]: jx_ec, jy_ec, jz_ec, ex_ec, ey_ec, ez_ec, hx_fc, hy_fc, hz_fc
         time [int]: index into list of saved files of type file_
+        (x,y,z)(min,max) [float]: coordinates to slice fields. lazy execution loading.  min==max for 2D slice
 
     returns:
-        slice of grid stored in file_ at specified time as a numpy array
+        slice of grid stored in file_ at specified time as a xarray
     """
     with open(os.path.join(root, file_ +'.xdmf'),  'r') as f:
         soup = BeautifulSoup(f, features='html.parser')
@@ -39,9 +49,8 @@ def getH5Grid(root: str, file_: str, field: str, time: int):
     DxDyDz = np.array(DxDyDz.contents[0].strip().split()).astype('float')
 
     topology = soup1.find_all('topology')[0]
-    topology = np.array(topology.attrs['dimensions'].split(" ")).astype('int')  - 1
+    topology = np.array(topology.attrs['dimensions'].split(" ")).astype('int') - 1
     
-
     attributeFields = soup1.find_all('attribute')
     
     for i in range(len(attributeFields)):
@@ -49,23 +58,48 @@ def getH5Grid(root: str, file_: str, field: str, time: int):
             break
             
     dataFile, keys = attributeFields[i].dataitem.get_text().split()[0].split(':')
-
+ 
     dataFile = h5py.File(os.path.join(root, dataFile), 'r')
     key = keys.split('/')[1]
     
-    data = np.array(dataFile[key][field]['p0']['3d'])
-    stop = origin + DxDyDz*topology
+    stop = origin + DxDyDz*topology 
 
     zUnits = np.linspace(origin[0], stop[0], topology[0])
     yUnits = np.linspace(origin[1], stop[1], topology[1])
     xUnits = np.linspace(origin[2], stop[2], topology[2])
     
+    def nearest(array, value, op):
+        """
+        return index of nearest value 
+        """
+        if value is not None:
+            return np.abs(array - value).argmin()
+        else:
+            return 0 if op == 'min' else len(array)
+    
+    
+    xmin = nearest(xUnits, xmin, 'min')
+    xmax = nearest(xUnits, xmax, 'max')
+    ymin = nearest(yUnits, ymin, 'min')
+    ymax = nearest(yUnits, ymax, 'max')
+    zmin = nearest(zUnits, zmin, 'min')
+    zmax = nearest(zUnits, zmax, 'max')
+    
+    if zmax == zmin: zmax = zmin + 1
+    if ymax == ymin: ymax = ymin + 1
+    if xmax == xmin: xmax = xmin + 1
+
+    zUnits = zUnits[zmin:zmax]
+    yUnits = yUnits[ymin:ymax]
+    xUnits = xUnits[xmin:xmax]
+    
+    data = dataFile[key][field]['p0']['3d'][zmin:zmax, ymin:ymax, xmin:xmax]
+
     grid = xr.DataArray(data, 
                         coords = [zUnits, yUnits, xUnits],
                         dims = ['z', 'y', 'x']
                        )
-    
-    return grid
+    return grid  
     
 def selectSubSpace(xp: tuple, yp: tuple, color: str='g' ):
     """
