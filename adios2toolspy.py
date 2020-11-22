@@ -3,8 +3,8 @@ author: John Donaghy
 '''
 
 
-from scipy import stats
-from scipy.interpolate import griddata
+#from scipy import stats
+#from scipy.interpolate import griddata
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -258,12 +258,11 @@ class SuperCell(Particles):
         hist = plt.hist2d(data[:,0],data[:,1], bins, norm=LogNorm())
         plt.colorbar(hist[3])
         
-    def histogramV(self, bins, log=False, dim='s', savePath=None, slice_=None):
+    def histogramV(self, bins, dim='s', savePath=None, slice_=None):
         """
-        Construct and plot 1D histogram of particle V.  Normalized, optionally logarithmic.
+        Construct and plot 1D histogram of particle V. 
         args:
             bins [int]: number of bins to be used in histogram construction
-            log [bool]: Logarithmic bins
             dim [char]: 'x', 'y', 'z', 's', s=scalar product (vx^2 + vy^2 + vz^2)
             savePath[str/path]: path to save histogram data
             slice_[char]: 'x', 'y', 'z', dimension to filter data, only keep 3 sigma
