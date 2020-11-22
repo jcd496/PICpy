@@ -88,7 +88,10 @@ class H5Processor:
 
         timeFilesXdmf = soup.grid.find_all('xi:include')
         timeFileXdmf = timeFilesXdmf[self.time]['href']
-
+        print(f'Loading {field} from File: {timeFileXdmf}')
+        
+        self.chkptTime = timeFileXdmf.split('.')[1][1:]
+        
         with open(self.root + timeFileXdmf, 'r') as f1:
             soup1 = BeautifulSoup(f1, features='html.parser')
 
@@ -171,7 +174,7 @@ class H5Processor:
         islice = self.__nearest(sliceUnits, self.slice, 'min')
         #calculate number of patches requested
         span = (ixr - ixl) 
-        nPatch = ceil(span/cellsPerPatch)
+        nPatch = 1 if span/cellsPerPatch < 1 else span//cellsPerPatch
         #patch alignment and covnert back to coordinates
         alignx, aligny = ixl//cellsPerPatch * cellsPerPatch, iyb//cellsPerPatch * cellsPerPatch
         alignSlice = islice//cellsPerPatch * cellsPerPatch
@@ -188,7 +191,82 @@ class H5Processor:
         
         width = nPatch * cellsPerPatch
         height = nPatch * cellsPerPatch
-
+        print(cornerCoord, width, height)
         rect = matplotlib.patches.Rectangle(cornerCoord, width, height, linewidth=1,edgecolor=color,facecolor='none')
         plt.gca().add_patch(rect)
+        return cornerPatchIdx, nPatch
+
+    
+    def getPatches(self, origin: tuple, nrows: int, ncols: int, axes: tuple=('y','z'), cellsPerPatch: int=32, spacing: int=1):
+        """
+        Takes requested subspace limits and converts to integer number of patches most
+        nearly representative of requested subspace. Plots selected patches.
+        Only supports square subspaces
+        used to collect particles from checkpoint file, which are collected patchwise
+        grid indexed into from bottom left
+        args:
+            origin [tuple/float]: (xleft, ybottom) 
+            nrows [int]: number of rows
+            ncols [int]: number of cols
+            axis [tuple/str]: (xaxis dimension, yaxis dimension)
+            cellsPerPatch [int]: number of grid cells in patch
+            spacing [int]: number of patches between subspace selection
+        returns:
+            ((int,int,int), int): lower left corner of selected space, number of patches per dim
+        """
+        xleft, ybottom = origin
+
+        dimx, dimy = axes
+
+        if (dimx or dimy) not in ['x', 'y', 'z']:
+            raise Exception('Improper spatial coordinates for plot axis')
+        slice_ = ['x','y','z']
+        slice_.remove(dimx)
+        slice_.remove(dimy)
+        slicedim = slice_[0]
+        
+        #convert requested coordinates to cell indexes
+        xunits = getattr(self, dimx + 'Units')
+        yunits = getattr(self, dimy + 'Units')
+        sliceUnits = getattr(self, slicedim + 'Units')
+        
+        ixl = self.__nearest(xunits, xleft, 'min')
+        iyb = self.__nearest(yunits, ybottom, 'min')
+
+        islice = self.__nearest(sliceUnits, self.slice, 'min')
+        #calculate number of patches requested
+        span = 1 #fix this
+        nPatch = 1 if span/cellsPerPatch < 1 else span//cellsPerPatch
+        
+        #patch alignment and covnert back to coordinates
+        alignx, aligny = ixl//cellsPerPatch * cellsPerPatch, iyb//cellsPerPatch * cellsPerPatch
+        alignSlice = islice//cellsPerPatch * cellsPerPatch
+        
+        cornerPatchIdx = []
+        width = xunits[nPatch * cellsPerPatch] - xunits[0]
+        height = yunits[nPatch * cellsPerPatch] - yunits[0]
+        
+        c = np.arange(1,nrows*ncols + 1)
+        norm = matplotlib.colors.Normalize(vmin=c.min(), vmax=c.max())
+        cmap = matplotlib.cm.ScalarMappable(norm=norm, cmap=matplotlib.cm.jet)
+        cmap.set_array([])
+        
+        for i in range(nrows):
+            for j in range(ncols):
+                y = aligny + i * (cellsPerPatch * nPatch + cellsPerPatch*spacing)
+                x = alignx + j * (cellsPerPatch * nPatch + cellsPerPatch*spacing)
+
+                if dimx == 'y' and dimy == 'z':
+                    cornerPatchIdx.append((alignSlice, x, y))
+                elif dimx == 'y' and dimy == 'x':
+                    cornerPatchIdx.append((y, x, alignSlice))
+            
+                lLeftX = xunits[x]
+                lLeftY = yunits[y]
+                cornerCoord = (lLeftX, lLeftY)
+                
+
+                rect = matplotlib.patches.Rectangle(cornerCoord, width, height, linewidth=1, edgecolor=cmap.to_rgba(1 + i*ncols + j),facecolor='none')
+                plt.gca().add_patch(rect)
+                
         return cornerPatchIdx, nPatch
