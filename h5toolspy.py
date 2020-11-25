@@ -29,7 +29,7 @@ class H5Processor:
     def __buildGrid(self):
         
         
-        with open(os.path.join(self.root, 'tfd' +'.xdmf'),  'r') as f:
+        with open(os.path.join(self.root, 'pfd' +'.xdmf'),  'r') as f:
             soup = BeautifulSoup(f, features='html.parser')
 
         timeFilesXdmf = soup.grid.find_all('xi:include')
@@ -76,9 +76,9 @@ class H5Processor:
             slice of grid stored from specified time as a xarray
         """
         
-        file_ = 'tfd' if field in ['jx_ec', 'jy_ec', 'jz_ec', 
+        file_ = 'pfd' if field in ['jx_ec', 'jy_ec', 'jz_ec', 
                                    'ex_ec', 'ey_ec', 'ez_ec', 
-                                   'hx_fc', 'hy_fc', 'hz_fc'] else 'tfd_moments'
+                                   'hx_fc', 'hy_fc', 'hz_fc'] else 'pfd_moments'
 
         if time != self.time:
             self.time = time
@@ -90,7 +90,7 @@ class H5Processor:
         timeFileXdmf = timeFilesXdmf[self.time]['href']
         print(f'Loading {field} from File: {timeFileXdmf}')
         
-        self.chkptTime = timeFileXdmf.split('.')[1][1:]
+        self.chkptTime = timeFileXdmf.split('.')[1]
         
         with open(self.root + timeFileXdmf, 'r') as f1:
             soup1 = BeautifulSoup(f1, features='html.parser')
@@ -208,7 +208,7 @@ class H5Processor:
             origin [tuple/float]: (xleft, ybottom) 
             nrows [int]: number of rows
             ncols [int]: number of cols
-            axis [tuple/str]: (xaxis dimension, yaxis dimension)
+            axes [tuple/str]: (xaxis dimension, yaxis dimension)
             cellsPerPatch [int]: number of grid cells in patch
             spacing [int]: number of patches between subspace selection
         returns:
