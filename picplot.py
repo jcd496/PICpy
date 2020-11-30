@@ -69,7 +69,7 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
     
     path = root + 'checkpoint_' + h5p.chkptTime + '.bp'
     
-    fig2, axes2 = plt.subplots(nrows, ncols, sharex=True, sharey=True)
+    fig2, axes2 = plt.subplots(nrows, ncols, sharex=True, sharey=True, squeeze=False)
     for i in range(nrows):
         for j in range(ncols):
             SC = SuperCell(path, corners[i*ncols + j], cellsPerPatch=cellsPerPatch, patches=numPatches, species=species)
