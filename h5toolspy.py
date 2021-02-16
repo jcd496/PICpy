@@ -12,11 +12,17 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 class H5Processor:
-    def __init__(self, root: str):
+    def __init__(self, root: str, timeAveraged: bool=True):
         self.root = root
+        self.baseFile = 'tfd' if timeAveraged else 'pfd'
+        
         self.time = 0
         self.xUnits, self.yUnits, self.zUnits = self.__buildGrid()
         self.slice = None
+        
+        ##temporary for harris
+        self.attributes= []
+        
     def __nearest(self, array, value, op):
             """
             return index of nearest value 
@@ -29,7 +35,7 @@ class H5Processor:
     def __buildGrid(self):
         
         
-        with open(os.path.join(self.root, 'tfd' +'.xdmf'),  'r') as f:
+        with open(os.path.join(self.root, self.baseFile +'.xdmf'),  'r') as f:
             soup = BeautifulSoup(f, features='html.parser')
 
         timeFilesXdmf = soup.grid.find_all('xi:include')
@@ -76,9 +82,9 @@ class H5Processor:
             slice of grid stored from specified time as a xarray
         """
         
-        file_ = 'tfd' if field in ['jx_ec', 'jy_ec', 'jz_ec', 
+        file_ = self.baseFile if field in ['jx_ec', 'jy_ec', 'jz_ec', 
                                    'ex_ec', 'ey_ec', 'ez_ec', 
-                                   'hx_fc', 'hy_fc', 'hz_fc'] else 'tfd_moments'
+                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile# Hack for Harris_moments' + '_moments'
 
         if time != self.time:
             self.time = time
@@ -96,7 +102,12 @@ class H5Processor:
             soup1 = BeautifulSoup(f1, features='html.parser')
 
         attributeFields = soup1.find_all('attribute')
-
+        
+        ## temporary for harris
+        if not self.attributes:
+            for af in attributeFields:
+                self.attributes.append(af.attrs['name'])
+        
         for i in range(len(attributeFields)):
             if attributeFields[i].attrs['name'] == field:
                 dataFile, keys = attributeFields[i].dataitem.get_text().split()[0].split(':')

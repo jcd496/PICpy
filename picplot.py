@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def fieldGrid(root: str, fields: tuple, times: tuple, xrange: tuple=None, yrange: tuple=None, zrange: tuple=None):
+def fieldGrid(root: str, fields: tuple, times: tuple, xrange: tuple=None, yrange: tuple=None, zrange: tuple=None, timeAveraged: bool=True):
     """
     plots list of fields at times in a nfields x ntimes grid
     args:
@@ -20,14 +20,16 @@ def fieldGrid(root: str, fields: tuple, times: tuple, xrange: tuple=None, yrange
     nflds = len(fields)
     ntimes = len(times)
     
-    h5p = H5Processor(root)
+    h5p = H5Processor(root, timeAveraged)
     
     fig, axes = plt.subplots(nrows=nflds, ncols=ntimes, squeeze=False)
     
     for fdx, fld in enumerate(fields):
         for tdx, time in enumerate(times):
             grid = h5p.getH5Grid(fld, time, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
-            grid.plot(ax=axes[fdx,tdx])
+            grid.plot(ax=axes[fdx,tdx], cmap='RdBu')
+            axes[fdx,tdx].set_title(fld)
+    plt.tight_layout()
             
 def histGrid(root: str, field: str, time: int, dims: tuple,
              origin: tuple, species: str='electron', nbins: int=100, spacing:int=2,

@@ -7,6 +7,7 @@ author: John Donaghy
 #from scipy.interpolate import griddata
 import numpy as np
 import pandas as pd
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import adios2
 
@@ -243,7 +244,7 @@ class SuperCell(Particles):
             self.residents = pd.DataFrame(columns = self.columns)
         
         
-    def histogram2D(self, bins):
+    def histogram2D(self, bins, axes=plt, fig=plt):
         """
         Build and plot histogram of 2D particle log momentum, y and z directions. Normalized
         args:
@@ -255,10 +256,10 @@ class SuperCell(Particles):
         #2d array y, z dims, might add switch to select which dimensions
         data = self.residents[['uy', 'uz']].to_numpy()
 
-        hist = plt.hist2d(data[:,0],data[:,1], bins, norm=LogNorm())
-        plt.colorbar(hist[3])
+        hist = axes.hist2d(data[:,0], data[:,1], bins, norm=mcolors.LogNorm())
+        fig.colorbar(hist[3], ax=axes)
         
-    def histogramV(self, bins, dim='s', savePath=None, slice_=None):
+    def histogramV(self, bins, dim='s', range_=(None,None), savePath=None, slice_=None):
         """
         Construct and plot 1D histogram of particle V. 
         args:
@@ -278,8 +279,11 @@ class SuperCell(Particles):
         else:
             idx = {'x': 'ux', 'y': 'uy', 'z': 'uz'}[dim]
             data = self.residents[idx]
+            
+        if range_[0] is None:
+            range_  = (data.min(), data.max())
         ## better to return ndarray hist than to plot here 
-        h = np.histogram(data, bins, density=False)
+        h = np.histogram(data, bins, density=False, range=range_)
         if savePath:
             np.save(savePath, h)
         return h
