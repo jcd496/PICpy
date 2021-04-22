@@ -18,14 +18,19 @@ class Particles:
     """
     Class to collect metadata from PSC checkpoint outputs and provide functionality to JIT load relevant particles
     """
-    def __init__(self, path, species='all'):
+    def __init__(self, path, speciesMap=None, species='all'):
         """
         args:
             path [str]: path to checkpoint file
+            speciesMap [dict]: hashmap species name as string to integer identifier
             species [str]: electron_he, electron, ion, all
         """
         self.path = path
-        self.species = {'electron_he': 0.0, 'electron': 1.0, 'ion': 2.0, 'all': -1}[species]
+
+        if speciesMap is None:
+            speciesMap = {'electron_he': 0.0, 'electron': 1.0, 'ion': 2.0, 'all': -1} 
+        
+        self.species = speciesMap[species]
         self.columns = self.__getColumns()
         self.patchSizes = self.__getSizes()
         self.patchCoordinates = self.__getPatchOffsets()
@@ -148,7 +153,7 @@ class Particles:
         if self.species != -1:
             prts = prts[prts['kind'] == self.species]
         
-        return prts[['x', 'y', 'z', 'kind']]
+        return prts[['x', 'y', 'z']]
     
     def getPatch(self, coordinates, cellsPerPatch):
         """
@@ -244,7 +249,7 @@ class SuperCell(Particles):
             self.residents = pd.DataFrame(columns = self.columns)
         
         
-    def histogram2D(self, bins, axes=plt, fig=plt):
+    def histogram2D(self, bins):
         """
         Build and plot histogram of 2D particle log momentum, y and z directions. Normalized
         args:
@@ -256,8 +261,8 @@ class SuperCell(Particles):
         #2d array y, z dims, might add switch to select which dimensions
         data = self.residents[['uy', 'uz']].to_numpy()
 
-        hist = axes.hist2d(data[:,0], data[:,1], bins, norm=mcolors.LogNorm())
-        fig.colorbar(hist[3], ax=axes)
+        hist = plt.hist2d(data[:,0], data[:,1], bins, norm=mcolors.LogNorm())
+        plt.colorbar()
         
     def histogramV(self, bins, dim='s', range_=(None,None), savePath=None, slice_=None):
         """

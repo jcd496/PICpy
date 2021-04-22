@@ -84,7 +84,7 @@ class H5Processor:
         
         file_ = self.baseFile if field in ['jx_ec', 'jy_ec', 'jz_ec', 
                                    'ex_ec', 'ey_ec', 'ez_ec', 
-                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile# Hack for Harris_moments' + '_moments'
+                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile + '_moments'  # Hack for Harris_moments' remove + '_moments'
 
         if time != self.time:
             self.time = time
@@ -95,8 +95,8 @@ class H5Processor:
         timeFilesXdmf = soup.grid.find_all('xi:include')
         timeFileXdmf = timeFilesXdmf[self.time]['href']
         print(f'Loading {field} from File: {timeFileXdmf}')
-        
-        self.chkptTime = timeFileXdmf.split('.')[1][1:]
+
+        self.chkptTime = timeFileXdmf.split('.')[1]#[1:] ##slice off leading 0
         
         with open(self.root + timeFileXdmf, 'r') as f1:
             soup1 = BeautifulSoup(f1, features='html.parser')

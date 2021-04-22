@@ -34,7 +34,8 @@ def fieldGrid(root: str, fields: tuple, times: tuple, xrange: tuple=None, yrange
 def histGrid(root: str, field: str, time: int, dims: tuple,
              origin: tuple, species: str='electron', nbins: int=100, spacing:int=2,
              cellsPerPatch: int=32, axes: tuple=('y', 'z'),
-             xrange: tuple=None, yrange: tuple=None, zrange: tuple=None):
+             xrange: tuple=None, yrange: tuple=None, zrange: tuple=None,
+             timeAveraged: bool=True):
     """
     overlay grid on field plot, construct associated histograms, plot in grid
     args:
@@ -58,7 +59,7 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
     
     fig, ax = plt.subplots(1)
 
-    h5p = H5Processor(root)
+    h5p = H5Processor(root, timeAveraged)
     grid = h5p.getH5Grid(field, time, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
     grid.plot(ax=ax)
     
@@ -68,7 +69,7 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
     norm = matplotlib.colors.Normalize(vmin=c.min(), vmax=c.max())
     cmap = matplotlib.cm.ScalarMappable(norm=norm, cmap=matplotlib.cm.jet)
     cmap.set_array([])
-    
+
     path = root + 'checkpoint_' + h5p.chkptTime + '.bp'
     
     fig2, axes2 = plt.subplots(nrows, ncols, sharex=True, sharey=True, squeeze=False)
