@@ -190,7 +190,7 @@ class SuperCell(Particles):
     Class to aggregate adjacent patches of particles (a Super Cell), used for analysis of particles in super cell.
     Uses JIT data read.  Selectively reads relevant particles belonging to super cell
     """
-    def __init__(self, path, centroid, patches=3, cellsPerPatch=32, species='all'):
+    def __init__(self, path, centroid, patches=3, cellsPerPatch=32, speciesMap=None, species='all'):
         """
         args:
             path: path [str]: path to checkpoint file
@@ -198,7 +198,7 @@ class SuperCell(Particles):
             patches [int]: number of patches in each direction of centroid to build super cell.  Each dimension will be 2xpatches+1 wide
             cellsPerPatch [int]: number of grid cells in each patch
         """
-        super().__init__(path, species)
+        super().__init__(path, speciesMap, species)
         self.centroid = centroid
         self.patches = patches
         self.cellsPerPatch = cellsPerPatch
