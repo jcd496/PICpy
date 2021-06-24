@@ -329,29 +329,28 @@ class SuperCell(Particles):
         plt.colorbar()
         
 
-
-
-
-
-
 class Fields:
-    def __init__(self, path):
+    def __init__(self, path, checkpoint=True):
         """
         args:
-            path [str]: path to checkpoint file
+            path [str]: path to adios2 file containing fields
+            checkpoint [bool]: is the adios2 file a checkpoint (True) or a write_flds output(false)
+            
         """
         self.path = path
         self.fieldMap = {'jx':0, 'jy':1, 'jz':2, 'ex':3, 'ey':4, 'ez':5, 'hx':6, 'hy':7, 'hz':8}
+        self.variableName = 'mflds' if checkpoint else 'jeh'
+        self.fileName = path.split("/")[-1]
         
-    def plot(self, field: str, corner: tuple, dims: tuple):
+    def getBpGrid(self, field: str, corner: tuple, dims: tuple):
         """
         args:
             field [str]: field to plot, follows the following convention
                 field map
                 jx, jy, jz, ex, ey, ez, hx, hy, hz
                 0    1   2   3   4   5   6   7   8
-            corner [tuple/int]: tuple of ints, lower left hand corner of grid to load
-            dims: [tuple/int]: dimensions of grid to load
+            corner [tuple/int]: tuple of ints, lower left hand corner of grid to load (start)
+            dims: [tuple/int]: dimensions of grid to load (count)
         returns:
             None: plots field selection from checkpoint file
         """
@@ -359,10 +358,8 @@ class Fields:
         x, y, z = corner
         dimx, dimy, dimz= dims
         with adios2.open(self.path, 'r') as fh:
-            checkpoint_fields = fh.read('mflds', [fdx, z, y, x], [1, dimz, dimy, dimx])
-            #checkpoint_fields = fh.read('mflds', [fdx,1920,0,640], [1,400,640,1])
+            grid = fh.read(self.variableName, [fdx, z, y, x], [1, dimz, dimy, dimx])
         
-        plt.pcolormesh(checkpoint_fields[0,:,:,0],  shading='gouraud')
-        plt.colorbar()   
-        
-        print(f'Grid Shape {checkpoint_fields.shape[1:]}')
+        print(f' Loading { field } from File: {self.fileName}') 
+        return grid[0]
+
