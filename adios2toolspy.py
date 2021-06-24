@@ -329,6 +329,8 @@ class SuperCell(BpParticles):
         plt.colorbar()
         
 
+        
+        
 class BpFields:
     def __init__(self, path, checkpoint=True):
         """
@@ -345,14 +347,14 @@ class BpFields:
     def getBpGrid(self, field: str, corner: tuple, dims: tuple):
         """
         args:
-            field [str]: field to plot, follows the following convention
+            field [str]: field to fetch, follows the following convention
                 field map
                 jx, jy, jz, ex, ey, ez, hx, hy, hz
                 0    1   2   3   4   5   6   7   8
             corner [tuple/int]: tuple of ints, lower left hand corner of grid to load (start)
             dims: [tuple/int]: dimensions of grid to load (count)
         returns:
-            None: plots field selection from checkpoint file
+            field data [ndarray]
         """
         fdx = self.fieldMap[field]
         x, y, z = corner
