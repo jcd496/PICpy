@@ -14,7 +14,7 @@ import adios2
 
 
 
-class Particles:
+class BpParticles:
     """
     Class to collect metadata from PSC checkpoint outputs and provide functionality to JIT load relevant particles
     """
@@ -185,7 +185,7 @@ class Particles:
         return prts
 
 
-class SuperCell(Particles):
+class SuperCell(BpParticles):
     """
     Class to aggregate adjacent patches of particles (a Super Cell), used for analysis of particles in super cell.
     Uses JIT data read.  Selectively reads relevant particles belonging to super cell
@@ -329,7 +329,7 @@ class SuperCell(Particles):
         plt.colorbar()
         
 
-class Fields:
+class BpFields:
     def __init__(self, path, checkpoint=True):
         """
         args:
@@ -360,6 +360,6 @@ class Fields:
         with adios2.open(self.path, 'r') as fh:
             grid = fh.read(self.variableName, [fdx, z, y, x], [1, dimz, dimy, dimx])
         
-        print(f' Loading { field } from File: {self.fileName}') 
+        print(f' Loading {field} from File: {self.fileName}') 
         return grid[0]
 
