@@ -12,13 +12,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 class H5Processor:
-    def __init__(self, root: str, timeAveraged: bool=True):
+    def __init__(self, root: str, timeAveraged: bool=True, downsample: int = 0):
         self.root = root
         self.baseFile = 'tfd' if timeAveraged else 'pfd'
         
         self.time = 0
         self.xUnits, self.yUnits, self.zUnits = self.__buildGrid()
         self.slice = None
+        self.downsample = downsample
         
         ##temporary for harris
         self.attributes= []
@@ -84,7 +85,7 @@ class H5Processor:
         
         file_ = self.baseFile if field in ['jx_ec', 'jy_ec', 'jz_ec', 
                                    'ex_ec', 'ey_ec', 'ez_ec', 
-                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile + '_moments'  # Hack for Harris_moments' remove + '_moments'
+                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile + '_moments' # Hack for Harris_moments' remove + '_moments'
 
         if time != self.time:
             self.time = time
@@ -96,7 +97,14 @@ class H5Processor:
         timeFileXdmf = timeFilesXdmf[self.time]['href']
         print(f'Loading {field} from File: {timeFileXdmf}')
 
-        self.chkptTime = timeFileXdmf.split('.')[1]#[1:] ##slice off leading 0
+        timeStamp = timeFileXdmf.split('.')[1]
+        zSlice = 0
+        for i, c in enumerate(timeStamp):
+            if c == '0':
+                zSlice = i + 1
+            else:
+                break
+        self.chkptTime = timeStamp[zSlice:] ##slice off leading 0
         
         with open(self.root + timeFileXdmf, 'r') as f1:
             soup1 = BeautifulSoup(f1, features='html.parser')
@@ -144,6 +152,10 @@ class H5Processor:
                             coords = [zUnits, yUnits, xUnits],
                             dims = ['z', 'y', 'x']
                            )
+        
+        for i in range(self.downsample):
+            grid = grid[::2,::2,::2]
+            
         return grid  
     
     def selectSubSpace(self, xp: tuple, yp: tuple, axes: tuple=('y','z'), color: str='g', cellsPerPatch: int=32):

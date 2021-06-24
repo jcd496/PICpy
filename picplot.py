@@ -1,10 +1,17 @@
-from adios2toolspy import SuperCell, Particles, Fields
+from adios2toolspy import SuperCell
 from h5toolspy import H5Processor
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def fieldGrid(root: str, fields: tuple, times: tuple, xrange: tuple=None, yrange: tuple=None, zrange: tuple=None, timeAveraged: bool=True):
+def fieldGrid(root: str, 
+              fields: tuple,
+              times: tuple,
+              xrange: tuple=None,
+              yrange: tuple=None,
+              zrange: tuple=None,
+              timeAveraged: bool=True,
+              downsample: int = 0):
     """
     plots list of fields at times in a nfields x ntimes grid
     args:
@@ -12,6 +19,7 @@ def fieldGrid(root: str, fields: tuple, times: tuple, xrange: tuple=None, yrange
         fields [list/str]: list of strings representing fields to plot
         times [list/int]: list of times to plot, given as index
         (x/y/z)range [tuple/float]: coordinates to slice field
+        downsample [int]: sample every other point in each diminsion downsample number of times, ie dim/2^downsample
     """
     xmin, xmax = xrange if xrange else (None, None)
     ymin, ymax = yrange if yrange else (None, None)
@@ -20,7 +28,7 @@ def fieldGrid(root: str, fields: tuple, times: tuple, xrange: tuple=None, yrange
     nflds = len(fields)
     ntimes = len(times)
     
-    h5p = H5Processor(root, timeAveraged)
+    h5p = H5Processor(root, timeAveraged, downsample)
     
     fig, axes = plt.subplots(nrows=nflds, ncols=ntimes, squeeze=False)
     
@@ -61,6 +69,7 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
 
     h5p = H5Processor(root, timeAveraged)
     grid = h5p.getH5Grid(field, time, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
+    print(grid.shape)
     grid.plot(ax=ax)
     
     corners, numPatches = h5p.getPatches(origin, nrows=nrows, ncols=ncols, cellsPerPatch=cellsPerPatch, spacing=spacing)
