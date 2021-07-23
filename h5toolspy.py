@@ -85,7 +85,7 @@ class H5Processor:
         
         file_ = self.baseFile if field in ['jx_ec', 'jy_ec', 'jz_ec', 
                                    'ex_ec', 'ey_ec', 'ez_ec', 
-                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile + '_moments' # Hack for Harris_moments' remove + '_moments'
+                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile # Hack for Harris_moments' remove + '_moments'
 
         if time != self.time:
             self.time = time
