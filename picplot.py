@@ -43,7 +43,7 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
              origin: tuple, species: str='electron', nbins: int=100, spacing:int=2,
              cellsPerPatch: int=32, axes: tuple=('y', 'z'),
              xrange: tuple=None, yrange: tuple=None, zrange: tuple=None,
-             timeAveraged: bool=True):
+             timeAveraged: bool=True, downsample: int = 0):
     """
     overlay grid on field plot, construct associated histograms, plot in grid
     args:
@@ -58,6 +58,7 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
         axes [tuple/str]: (xaxis dimension, yaxis dimension)
         cellsPerPatch [int]: number of grid cells in patch
         (x/y/z)range [tuple/float]: coordinates to slice field
+        downsample [int]: sample every other point in each diminsion downsample number of times, ie dim/2^downsample
     """
     nrows, ncols = dims
     
@@ -67,7 +68,7 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
     
     fig, ax = plt.subplots(1)
 
-    h5p = H5Processor(root, timeAveraged)
+    h5p = H5Processor(root, timeAveraged, downsample)
     grid = h5p.getH5Grid(field, time, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
     print(grid.shape)
     grid.plot(ax=ax)
