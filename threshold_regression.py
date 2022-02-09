@@ -20,7 +20,8 @@ class LassoThresholdRegressor():
                  verbose = False,
                  maxIter = 1e4,
                  scaling = False,
-                 threshold = 0.0):
+                 lthreshold = 0.0,
+                 uthreshold = 1e6):
         """ Linear Regressor Object
             will use L0-norm, sklearn styled.
             Data dim:
@@ -41,8 +42,8 @@ class LassoThresholdRegressor():
         self.tolerance = tolerance
         self.maxIter = maxIter
         self.scaling = scaling
-        self.threshold = threshold
-
+        self.lthreshold = lthreshold
+        self.uthreshold = uthreshold
         self.dws = []
     def fit(self, x, y):
         
@@ -78,8 +79,10 @@ class LassoThresholdRegressor():
             else:
                 div_cnt = 0
             iterations += 1
-        zeroMask = np.abs(self.W) < self.threshold 
+            
+        zeroMask = np.where((np.abs(self.W) < self.lthreshold) | (np.abs(self.W) > self.uthreshold))
         self.W[zeroMask] = 0
+        
         ## Report Results ##
         plt.plot(yscaled, 'o', label='data')
         plt.plot(self.__fit_predict(xscaled), label='prediction')
