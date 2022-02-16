@@ -187,7 +187,8 @@ class LstsqThresholdRegressor():
         plt.plot(yscaled, 'o', label='data')
         plt.plot(self.__fit_predict(xscaled), label='prediction')
         plt.legend()
-        print(f"final MSE:\n\t {residuals.flatten()/self.m}")
+        print(f"final SE:\n\t {residuals.flatten()}")
+#         print(f"final MSE:\n\t {residuals.flatten()/self.m}")
         print(f'Weights:')
         for i in range(self.n):
             print(f'\t Term {i}: {self.W[i]}')
