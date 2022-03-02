@@ -144,7 +144,8 @@ class LstsqThresholdRegressor():
     def __init__(self, 
                  scaling = False,
                  lthreshold = 0.0,
-                 uthreshold = 1e6):
+                 uthreshold = 1e6,
+                 verbose = True):
         """ Linear Regressor Object
             Data dim:
                 x [m,n]
@@ -161,6 +162,7 @@ class LstsqThresholdRegressor():
         self.scaling = scaling
         self.lthreshold = lthreshold
         self.uthreshold = uthreshold
+        self.verbose = verbose
 
         self.dws = []
     def fit(self, x, y):
@@ -184,9 +186,10 @@ class LstsqThresholdRegressor():
             self.W[oneMask], residuals, rank, s = np.linalg.lstsq(xscaled[:,oneMask], yscaled)
             
         ## Report Results ##
-        plt.plot(yscaled, 'o', label='data')
-        plt.plot(self.__fit_predict(xscaled), label='prediction')
-        plt.legend()
+        if self.verbose:
+            plt.plot(yscaled, 'o', label='data')
+            plt.plot(self.__fit_predict(xscaled), label='prediction')
+            plt.legend()
         print(f"final SE:\n\t {residuals.flatten()}")
 #         print(f"final MSE:\n\t {residuals.flatten()/self.m}")
         print(f'Weights:')
@@ -194,6 +197,8 @@ class LstsqThresholdRegressor():
             print(f'\t Term {i}: {self.W[i]}')
         #####################
         
+        self.final_error = residuals.flatten()
+
     def __fit_predict(self, x):
         yt = np.dot( x, self.W )
         return yt
