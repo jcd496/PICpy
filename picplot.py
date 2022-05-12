@@ -35,7 +35,7 @@ def fieldGrid(root: str,
     for fdx, fld in enumerate(fields):
         for tdx, time in enumerate(times):
             grid = h5p.getH5Grid(fld, time, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
-            grid.plot(ax=axes[fdx,tdx], cmap='RdBu')
+            grid.plot(ax=axes[fdx,tdx], cmap='RdBu_r')
             axes[fdx,tdx].set_title(fld)
     plt.tight_layout()
             
