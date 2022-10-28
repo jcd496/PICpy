@@ -3,6 +3,7 @@ from h5toolspy import H5Processor
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
 def fieldGrid(root: str, 
               fields: tuple,
@@ -65,15 +66,15 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
     xmin, xmax = xrange if xrange else (None, None)
     ymin, ymax = yrange if yrange else (None, None)
     zmin, zmax = zrange if zrange else (None, None)
-    
+
     fig, ax = plt.subplots(1)
 
     h5p = H5Processor(root, timeAveraged, downsample)
     grid = h5p.getH5Grid(field, time, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
-    print(grid.shape)
+
     grid.plot(ax=ax)
     
-    corners, numPatches = h5p.getPatches(origin, nrows=nrows, ncols=ncols, cellsPerPatch=cellsPerPatch, spacing=spacing)
+    corners, numPatches = h5p.getPatches(origin, nrows=nrows, ncols=ncols, cellsPerPatch=cellsPerPatch, spacing=spacing, axes=axes)
     
     c = np.arange(1,nrows*ncols + 1)
     norm = matplotlib.colors.Normalize(vmin=c.min(), vmax=c.max())
@@ -82,11 +83,32 @@ def histGrid(root: str, field: str, time: int, dims: tuple,
 
     path = root + 'checkpoint_' + h5p.chkptTime + '.bp'
     
+    histograms = []
     fig2, axes2 = plt.subplots(nrows, ncols, sharex=True, sharey=True, squeeze=False)
     for i in range(nrows):
+        rowHistograms = []
         for j in range(ncols):
             SC = SuperCell(path, corners[i*ncols + j], cellsPerPatch=cellsPerPatch, patches=numPatches, species=species)
             h = SC.histogramV(nbins, dim='s')
-            axes2[nrows-i-1, j].plot(h[1][1:], h[0], c=cmap.to_rgba(1+ i*ncols + j))
+            rowHistograms.append(h)
+            axes2[nrows-i-1, j].scatter(h[1][1:], h[0], color=cmap.to_rgba(1+ i*ncols + j))
             axes2[nrows-i-1, j].set_yscale('log')
-    plt.tight_layout()
+            
+            ### ZERO OUT BINS WITH A SINGLE PARTICLE ###
+            zero_out = h[0] <= 1
+            h[0][zero_out] = 0
+            
+            popt, pcov = curve_fit(piecewise_linear, h[1][1:], np.log(h[0]+1))
+            axes2[nrows-i-1, j].plot(h[1][1:], np.exp(piecewise_linear(h[1][1:], *popt)))
+            axes2[nrows-i-1, j].set_title(f'Temps: {-1/popt[2]:.3f}, {-1/popt[3]:.3f}')
+            
+        histograms.insert(0, rowHistograms)
+    fig2.tight_layout()
+    
+    return histograms
+
+
+def piecewise_linear(x, x0, y0, k1, k2):
+    y = np.piecewise(x, [x < x0, x >= x0],
+                     [lambda x: k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0 ])
+    return y

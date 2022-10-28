@@ -104,7 +104,7 @@ class BpParticles:
             offsets = np.cumsum(self.patchSizes) - self.patchSizes
         else:
             raise Exception("Either patch coordinates or patch sizes not loaded")
-        
+
         return [offsets[idx]], [self.patchSizes[idx]], idx
     
     def getPatchMomentum(self, coordinates, cellsPerPatch):
@@ -183,6 +183,119 @@ class BpParticles:
             prts = prts[prts['kind'] == self.species]
         
         return prts
+
+
+class SuperCell(BpParticles):
+    """
+    Class to aggregate adjacent patches of particles (a Super Cell), used for analysis of particles in super cell.
+    Uses JIT data read.  Selectively reads relevant particles belonging to super cell
+    """
+    def __init__(self, path, centroid, patches=3, cellsPerPatch=32, speciesMap=None, species='all'):
+        """
+        args:
+            path: path [str]: path to checkpoint file
+            centroid (int, int, int): lower left coordinates of patch which acts as the centroid of super cell.
+            patches [int]: number of patches in each direction of centroid to build super cell.  Each dimension will be 2xpatches+1 wide
+            cellsPerPatch [int]: number of grid cells in each patch
+        """
+        super().__init__(path, speciesMap, species)
+        self.centroid = centroid
+        self.patches = patches
+        self.cellsPerPatch = cellsPerPatch
+        self.residents = None
+        
+    def __collectPrts(self, getPositions=False):
+        """
+        Read particles belonging to super cell from checkpoint file. Only retrieve useful features
+        args:
+            centroid (int, int, int): lower left coordinates of centroid patch
+            patches [int]: number of patches in each direction of centroid to build super cell.
+            cellsPerPatch [int]: number of grid cells in each patch
+            getPostitions [bool]: If true, read particle position data in addition to momentum 
+        """
+        patches = self.patches
+        
+        if patches % 2 == 1:
+            lastPatch = 1
+        else:
+            lastPatch = 0
+            
+        patches = patches // 2
+       
+        x, y, z = self.centroid
+        residents = []
+        #for i in range(-patches, patches+1):  add for 3d supercell
+        
+        for j in range(-patches, patches+lastPatch):
+            for k in range(-patches, patches+lastPatch):
+                
+                patchX, patchY, patchZ = x, y + (j * self.cellsPerPatch), z + (k * self.cellsPerPatch)
+                #patchX, patchY, patchZ = x + i*cellsPerPatch, y + j*cellsPerPatch, z + k*cellsPerPatch this line for 3d supercell
+
+                if(
+                    patchX >= 0 and patchX <= self.gridMaxDims[0] and
+                    patchY >= 0 and patchY <= self.gridMaxDims[1] and
+                    patchZ >= 0 and patchZ <= self.gridMaxDims[2]
+                  ):
+                
+                    coordinates = (patchX, patchY, patchZ)
+                    prts = self.getPatchMomentum(coordinates, self.cellsPerPatch)
+                    
+                    if getPositions:
+                        positions = self.getPatchPosition(coordinates, self.cellsPerPatch)
+                        prts = pd.concat((prts, positions), axis=1)
+                        
+                    residents.append( prts )
+               
+        if len(residents) > 0:
+            self.residents = pd.concat(residents, ignore_index=True)
+        else:
+            self.residents = pd.DataFrame(columns = self.columns)
+        
+        
+    def histogram2D(self, bins):
+        """
+        Build and plot histogram of 2D particle log momentum, y and z directions. Normalized
+        args:
+            bins [int]: number of bins to be used in histogram construction
+        """
+        if self.residents is None:
+            self.__collectPrts()
+        
+        #2d array y, z dims, might add switch to select which dimensions
+        data = self.residents[['uy', 'uz']].to_numpy()
+
+        hist = plt.hist2d(data[:,0], data[:,1], bins, norm=mcolors.LogNorm())
+        plt.colorbar()
+        
+    def histogramV(self, bins, dim='s', range_=(None,None), savePath=None, slice_=None):
+        """
+        Construct and plot 1D histogram of particle V. 
+        args:
+            bins [int]: number of bins to be used in histogram construction
+            dim [char]: 'x', 'y', 'z', 's', s=scalar product (vx^2 + vy^2 + vz^2)
+            savePath[str/path]: path to save histogram data
+            slice_[char]: 'x', 'y', 'z', dimension to filter data, only keep 3 sigma
+        """
+        if self.residents is None:
+            self.__collectPrts(getPositions=bool(slice_))
+            
+        if bool(slice_):    
+            self.residents = self.residents[ np.abs(stats.zscore(self.residents[slice_])) < 1]
+        
+        if dim == 's':
+            data = 0.5*(self.residents['ux']**2 + self.residents['uy']**2 + self.residents['uz']**2)
+        else:
+            idx = {'x': 'ux', 'y': 'uy', 'z': 'uz'}[dim]
+            data = self.residents[idx]
+            
+        if range_[0] is None:
+            range_  = (data.min(), data.max())
+        ## better to return ndarray hist than to plot here 
+        h = np.histogram(data, bins, density=False, range=range_)
+        if savePath:
+            np.save(savePath, h)
+        return h
 
 
 class SuperCell(BpParticles):

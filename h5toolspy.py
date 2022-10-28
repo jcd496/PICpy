@@ -29,7 +29,7 @@ class H5Processor:
             return index of nearest value 
             """
             if value is not None:
-                return np.abs(array - value).argmin()
+                return np.abs(array - value).argmin() + 1
             else:
                 return 0 if op == 'min' else len(array)
         
@@ -63,7 +63,7 @@ class H5Processor:
 
         return xUnits, yUnits, zUnits
         
-    
+
     def getH5Grid(self,
                   field: str,
                   time: int,
@@ -85,7 +85,7 @@ class H5Processor:
         
         file_ = self.baseFile if field in ['jx_ec', 'jy_ec', 'jz_ec', 
                                    'ex_ec', 'ey_ec', 'ez_ec', 
-                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile # Hack for Harris_moments' remove + '_moments'
+                                   'hx_fc', 'hy_fc', 'hz_fc'] else self.baseFile + '_moments' # Hack for Harris_moments' remove + '_moments'
 
         if time != self.time:
             self.time = time
@@ -121,7 +121,6 @@ class H5Processor:
                 dataFile, keys = attributeFields[i].dataitem.get_text().split()[0].split(':')
                 break
 
-
         dataFile = h5py.File(os.path.join(self.root, dataFile), 'r')
         key = keys.split('/')[1]
 
@@ -131,17 +130,18 @@ class H5Processor:
         ymax = self.__nearest(self.yUnits, ymax, 'max')
         zmin = self.__nearest(self.zUnits, zmin, 'min')
         zmax = self.__nearest(self.zUnits, zmax, 'max')
-
+        
         if zmax == zmin: 
             zmax = zmin + 1
-            self.slice = zmin
+            self.slice = zmax
         elif ymax == ymin:
             ymax = ymin + 1
-            self.slice = ymin
+            self.slice = ymax
         elif xmax == xmin:
             xmax = xmin + 1
-            self.slice = xmin
-
+            self.slice = xmax
+            
+        
         zUnits = self.zUnits[zmin:zmax]
         yUnits = self.yUnits[ymin:ymax]
         xUnits = self.xUnits[xmin:xmax]
@@ -157,68 +157,6 @@ class H5Processor:
             grid = grid[::2,::2,::2]
             
         return grid  
-    
-    def selectSubSpace(self, xp: tuple, yp: tuple, axes: tuple=('y','z'), color: str='g', cellsPerPatch: int=32):
-        """
-        Takes requested subspace limits and converts to integer number of patches most
-        nearly representative of requested subspace. Plots selected patches.
-        Only supports square subspaces
-        used to collect particles from checkpoint file, which are collected patchwise 
-        args:
-            xp [tuple/int]: (xleft, xright)
-            yp [tuple/int]: (ybottom, ytop)
-            axis [tuple/str]: (xaxis dimension, yaxis dimension)
-            color [str]: matplotlib color
-        returns:
-            ((int,int,int), int): lower left corner of selected space, number of patches per dim
-        """
-        xleft, xright = xp
-        ybottom, ytop = yp
-
-        dimx, dimy = axes
-
-        if (dimx or dimy) not in ['x', 'y', 'z']:
-            raise Exception('Improper spatial coordinates for plot axis')
-        slice_ = ['x','y','z']
-        slice_.remove(dimx)
-        slice_.remove(dimy)
-        slicedim = slice_[0]
-        
-        #convert requested coordinates to cell indexes
-        xunits = getattr(self, dimx + 'Units')
-        yunits = getattr(self, dimy + 'Units')
-        sliceUnits = getattr(self, slicedim + 'Units')
-        
-        ixl = self.__nearest(xunits, xleft, 'min')
-        ixr = self.__nearest(xunits, xright, 'max')
-        iyb = self.__nearest(yunits, ybottom, 'min')
-        iyt = self.__nearest(yunits, ytop, 'max')
-
-        islice = self.__nearest(sliceUnits, self.slice, 'min')
-        #calculate number of patches requested
-        span = (ixr - ixl) 
-        nPatch = 1 if span/cellsPerPatch < 1 else span//cellsPerPatch
-        #patch alignment and covnert back to coordinates
-        alignx, aligny = ixl//cellsPerPatch * cellsPerPatch, iyb//cellsPerPatch * cellsPerPatch
-        alignSlice = islice//cellsPerPatch * cellsPerPatch
-        lLeftX = xunits[alignx]
-        lLeftY = yunits[aligny]
-        
-        idxMap = {'x':0, 'y':1, 'z':2}
-        if dimx == 'y' and dimy == 'z':
-            cornerPatchIdx = (alignSlice, alignx, aligny)
-        elif dimx == 'y' and dimy == 'x':
-            cornerPatchIdx = (aligny, alignx, alignSlice)
-            
-        cornerCoord = (lLeftX, lLeftY)
-        
-        width = nPatch * cellsPerPatch
-        height = nPatch * cellsPerPatch
-        print(cornerCoord, width, height)
-        rect = matplotlib.patches.Rectangle(cornerCoord, width, height, linewidth=1,edgecolor=color,facecolor='none')
-        plt.gca().add_patch(rect)
-        return cornerPatchIdx, nPatch
-
     
     def getPatches(self, origin: tuple, nrows: int, ncols: int, axes: tuple=('y','z'), cellsPerPatch: int=32, spacing: int=1):
         """
@@ -255,8 +193,12 @@ class H5Processor:
         
         ixl = self.__nearest(xunits, xleft, 'min')
         iyb = self.__nearest(yunits, ybottom, 'min')
-
-        islice = self.__nearest(sliceUnits, self.slice, 'min')
+        
+        if self.slice:
+            islice = self.slice
+        else:
+            raise Exception('Error: slice not set')
+            
         #calculate number of patches requested
         span = 1 #fix this
         nPatch = 1 if span/cellsPerPatch < 1 else span//cellsPerPatch
@@ -264,7 +206,7 @@ class H5Processor:
         #patch alignment and covnert back to coordinates
         alignx, aligny = ixl//cellsPerPatch * cellsPerPatch, iyb//cellsPerPatch * cellsPerPatch
         alignSlice = islice//cellsPerPatch * cellsPerPatch
-        
+    
         cornerPatchIdx = []
         width = xunits[nPatch * cellsPerPatch] - xunits[0]
         height = yunits[nPatch * cellsPerPatch] - yunits[0]
