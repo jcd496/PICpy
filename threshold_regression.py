@@ -198,6 +198,7 @@ class LstsqThresholdRegressor():
         #####################
         
         self.final_error = residuals.flatten()
+        self.error_metric = np.linalg.norm(self.__averaging(yscaled - xscaled@self.W)) / np.linalg.norm(yscaled)
 
     def __fit_predict(self, x):
         yt = np.dot( x, self.W )
@@ -209,3 +210,12 @@ class LstsqThresholdRegressor():
         return yt if not self.scaling else self.yscaler.inverse_transform(yt)
     
     
+    def __averaging(self, arr):
+        """just here for consistent error metric, averaging(b - A@x)"""
+        x, y = arr.shape
+        arr = np.pad(arr, ((1,1), (1,1)))
+        temp = np.zeros((x,y))
+        for i in range(x):
+            for j in range(y):
+                temp[i,j] = (arr[i,j] + arr[i+1,j] + arr[i-1,j] + arr[i,j+1] + arr[i,j-1] + arr[i-1,j-1] + arr[i-1,j+1] + arr[i+1,j-1] + arr[i+1,j+1])/9
+        return temp
